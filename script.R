@@ -3,6 +3,8 @@
 library(sf)
 library(dplyr)
 
+library(ggplot2)
+
 library(rgdal)
 library(raster)
 
@@ -119,11 +121,16 @@ stations$name[1:4]
 
 # Create a polygon using the four stations as points. 
 # Don't forget to close the polygon by adding the first point to the end of the coordinate list.
-station_poly <- st_polygon(list(rbind(st_coordinates(stations$geometry[1:4]), 
-                              st_coordinates(stations$geometry[1]))))
+points <- rbind(st_coordinates(stations$geometry[1:4]), 
+                st_coordinates(stations$geometry[1]))
 
+station_poly <- st_polygon(list(points))
+class(station_poly)
+points
 # Transform polygon into a geometry set.
+
 station_polyset <- st_sfc(station_poly)
+class(station_polyset)
 
 # Get the area
 st_area(station_polyset)
@@ -138,3 +145,31 @@ plot(station_poly)
 
 # This is a visualization of the space between four stations. Not superimposed on a map.
 
+# Where is this?
+stations$geometry[1]
+
+station1 <- data.frame(st_coordinates(stations$geometry[1]))
+station1
+world <- map_data("world")
+ggplot()+
+  geom_polygon(data = world, aes (x = long, y = lat, group = group)) +
+  coord_fixed(1.3) +
+  geom_point(data = station1, aes(x = X, y = Y), color = "red")
+
+# North America.
+stations$geometry[1]
+
+# Need a closer view. Loading the Google API
+library(ggmap)
+
+register_google(API_KEY)
+
+# Get a map centered on mean 
+test <- data.frame(points)
+map <- get_map(data.frame(mean(test$X), mean(test$Y)), zoom = 12)
+
+# Build map using the points first, then use the polygon shapes.
+ggmap(map) +
+  geom_polygon(data = test, aes(x = X, y = Y)) +
+  labs(title = "Area between four metro stations",
+       subtitle = paste0("Area = ", st_area(station_polyset)))
