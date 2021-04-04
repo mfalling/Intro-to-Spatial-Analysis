@@ -173,3 +173,4 @@ ggmap(map) +
   geom_polygon(data = test, aes(x = X, y = Y)) +
   labs(title = "Area between four metro stations",
        subtitle = paste0("Area = ", st_area(station_polyset)))
+ggsave("output/Test1.png")
