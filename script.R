@@ -174,3 +174,21 @@ ggmap(map) +
   labs(title = "Area between four metro stations",
        subtitle = paste0("Area = ", st_area(station_polyset)))
 ggsave("output/Test1.png")
+
+
+
+# Get points for all the stations
+points <- data.frame(rbind(st_coordinates(stations$geometry)))
+points <- cbind(points, stations$line)
+# Center map on average lat/lon
+map <- get_map(data.frame(mean(points$X), mean(points$Y)), zoom = 11)
+
+# Plot locations of stations
+ggmap(map) +
+  geom_point(data = points, aes(x = X, y = Y), color = stations$line) +
+  labs(title = "Metro stations and lines")
+ggsave("output/Test2.png")
+
+# Can I get a bounding box for each line?
+
+
