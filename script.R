@@ -13,11 +13,18 @@ library(raster)
 # Partially following https://www.youtube.com/watch?v=WBfcR0zN0xk
 # video entitled: "How to get the bounding box of spatial polygons in R"
 
-# Partially following datacamp.com/courses/spatial-analysis-with-sf-and-raster-in-r
+# Partially following https://datacamp.com/courses/spatial-analysis-with-sf-and-raster-in-r
 # DataCamp course entitled: "Spatial Analysis with sf and raster in R"
 
 # Sample Shape File from https://docs.mapbox.com/help/glossary/shapefile/
 
+
+# Tasks for myself --------------------------------------------------------
+
+# 1. Make a bounding box around the entire metro system
+# 2. Calculate the area.
+# 3. Make bounding boxes around the individual lines
+# 4. Calculate the area of each.
 
 # Exploring shape file ----------------------------------------------------
 
@@ -121,7 +128,6 @@ stations$name[1:4]
 # Don't forget to close the polygon by adding the first point to the end of the coordinate list.
 points <- rbind(st_coordinates(stations$geometry[1:4]), 
                 st_coordinates(stations$geometry[1]))
-
 station_poly <- st_polygon(list(points))
 class(station_poly)
 points
@@ -187,11 +193,14 @@ ggmap(map) +
   labs(title = "Metro stations and lines")
 ggsave("output/Test2.png")
 
-# Can I get a bounding box for each line?
+
+
+# Can I get a bounding box for each line? ---------------------------------
 
 redbbox <- stations %>%
   filter(line == "red") %>%
   st_bbox()
+?st_bbox
 plot(redbbox)
 # This isn't right.
 
@@ -266,3 +275,24 @@ ggmap(map) +
   labs(title = "Boundaries for each of the lines")
 ggsave("output/Test3.png")
   
+
+
+#   -----------------------------------------------------------------------
+
+
+# Bounding Box for the blue line.
+# Modified code from original video.
+bbblue <- stations %>%
+  filter(line == "blue") %>%
+  extent() %>%
+  spPolygons(crs = crs(.))
+bbblue$ID <- 1
+
+ggmap(map) +
+  geom_point(data = points, aes(x = X, y = Y), color = stations$line) +
+  geom_polygon(data = bluefortified, aes(long, lat, group = group),
+               fill = "blue", colour = "darkblue", alpha = 0.2) +
+  geom_polygon(data = fortify(bbblue), aes(long, lat, group = group),
+               fill = "blue", colour = "darkblue", alpha = 0.2) +
+  labs(title = "Bounding box for Blue Line")
+ggsave("output/Test4.png")  
