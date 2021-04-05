@@ -288,11 +288,78 @@ bbblue <- stations %>%
   spPolygons(crs = crs(.))
 bbblue$ID <- 1
 
+# Area from https://gis.stackexchange.com/questions/119624/extract-areas-of-multi-part-polygons-spatialpolygonsdataframe-r
+
 ggmap(map) +
   geom_point(data = points, aes(x = X, y = Y), color = stations$line) +
   geom_polygon(data = bluefortified, aes(long, lat, group = group),
                fill = "blue", colour = "darkblue", alpha = 0.2) +
   geom_polygon(data = fortify(bbblue), aes(long, lat, group = group),
                fill = "blue", colour = "darkblue", alpha = 0.2) +
-  labs(title = "Bounding box for Blue Line")
+  labs(title = "Bounding box for Blue Line",
+       subtitle = paste0("Area =", sapply(slot(bbblue, "polygons"), slot, "area")))
 ggsave("output/Test4.png")  
+
+
+# Bounding Box for the blue line.
+# Modified code from original video.
+bbblue <- stations %>%
+  filter(line == "blue") %>%
+  extent() %>%
+  spPolygons(crs = crs(.))
+bbblue$ID <- 1
+
+# Area from https://gis.stackexchange.com/questions/119624/extract-areas-of-multi-part-polygons-spatialpolygonsdataframe-r
+
+ggmap(map) +
+  geom_point(data = points, aes(x = X, y = Y), color = stations$line) +
+  geom_polygon(data = bluefortified, aes(long, lat, group = group),
+               fill = "blue", colour = "darkblue", alpha = 0.2) +
+  geom_polygon(data = fortify(bbblue), aes(long, lat, group = group),
+               fill = "blue", colour = "darkblue", alpha = 0.2) +
+  labs(title = "Bounding box for Blue Line",
+       subtitle = paste0("Area =", sapply(slot(bbblue, "polygons"), slot, "area")))
+ggsave("output/Test4.png")  
+
+
+
+
+bbblue
+for (i in 2:length(unique(stations$line))){
+  bb <- stations %>%
+    filter(line == unique(stations$line)[i]) %>%
+    extent() %>%
+    spPolygons(crs = crs(.))
+  print(bb)
+  bb$ID <- 1
+  bbblue <- rbind(bbblue, bb)
+}
+bbfull <- fortify(bbblue)
+bbfull$line <- rep(unique(stations$line), each = 5)
+unique(stations$line)
+
+
+
+fortfull <- NULL
+for (i in 1:length(unique(stations$line))){
+  if (unique(stations$line)[i] != "yellow"){
+  fortified <- fortifiedline(unique(stations$line)[i])
+  fortified$line <- unique(stations$line)[i]
+  fortfull <- rbind(fortified, fortfull)
+  }
+}
+
+cbp1 <- c("blue", "green", "orange", "red", "yellow")
+
+ggmap(map) +
+  geom_point(data = points, aes(x = X, y = Y)) +
+  geom_polygon(data = bbfull, aes(long, lat, group = line, fill = line, col = line), alpha = .2) +
+  geom_polygon(data = fortfull, aes(long, lat, group = line, fill = line, col = line), alpha = .5) +
+  scale_fill_manual(values = cbp1) +
+  scale_color_manual(values = cbp1) +
+  labs(title = "Metro lines: Boundary lines and bounding boxes")
+ggsave("output/Test5.png")
+
+options(scipen = 999)
+data.frame(line = unique(stations$line), 
+           bb_area = sapply(slot(bbblue, "polygons"), slot, "area"))
