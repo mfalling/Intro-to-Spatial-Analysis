@@ -9,4 +9,9 @@
 - Generated areas for the bounding boxes (in caption)
 
 
-![Test5.png](Test5.png)
+![](output/Test5.png)
+
+Next steps: 
+- Get areas for the space within the boundary lines
+- Finish the intro to spatial analysis DataCamp course
+- Merge datasets for analysis
