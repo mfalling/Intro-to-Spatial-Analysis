@@ -53,10 +53,8 @@ class(st_area(stations))
 # Isolate a point
 stations$geometry[1]
 
-st_area(stations[1])
-
 # Not sure why this is all zeroes.
-
+stations$geometry[1]
 
 # Troubleshooting ---------------------------------------------------------
 
@@ -181,7 +179,7 @@ ggsave("output/Test1.png")
 points <- data.frame(rbind(st_coordinates(stations$geometry)))
 points <- cbind(points, stations$line)
 # Center map on average lat/lon
-map <- get_map(data.frame(mean(points$X), mean(points$Y)), zoom = 11)
+map <- get_map(data.frame(mean(points$X), mean(points$Y)), zoom = 10)
 
 # Plot locations of stations
 ggmap(map) +
@@ -191,4 +189,80 @@ ggsave("output/Test2.png")
 
 # Can I get a bounding box for each line?
 
+redbbox <- stations %>%
+  filter(line == "red") %>%
+  st_bbox()
+plot(redbbox)
+# This isn't right.
 
+redcoords <- stations %>%
+  filter(line == "red") %>%
+  st_coordinates()
+
+
+# Following https://stackoverflow.com/questions/24143052/row-ordering-for-polygons
+# To generate boundary points (not bbox)
+
+redhull <- ahull(redcoords,alpha=1)
+# extract the row numbers of the boundary redpoints, in convex order.
+indices <- redhull$arcs[,"end1"]
+# extract the boundary redpoints from XY
+redpoints <- redcoords[indices, ]
+# add the closing point
+redpoints <- rbind(redpoints,redpoints[1,])
+# create the SpatialPolygonsDataFrame
+SpP <- SpatialPolygons(list(Polygons(list(Polygon(redpoints)), ID = "s1"))) 
+plot(SpP)
+points(redcoords)
+
+# The above works, but needs to be transformed for ggmap.
+class(SpP)
+
+# Following https://gis.stackexchange.com/questions/209314/ggmap-plot-polygon-from-shapefile
+# To transform the SpatialPolgon to something usable for ggmap.
+
+redfortified <- fortify(SpP)
+
+ggmap(map) +
+  geom_point(data = points, aes(x = X, y = Y), color = stations$line) +
+  geom_polygon(data = redfortified, aes(long, lat, group = group),
+               fill = "red", colour = "darkred", alpha = 0.2)
+
+# This works. Getting boundaries for the other lines.
+
+fortifiedline <- function(linecolor){
+  coords <- stations %>%
+    filter(line == linecolor) %>%
+    st_coordinates()
+  hull <- ahull(coords,alpha=1)
+  # extract the row numbers of the boundary redpoints, in convex order.
+  indices <- hull$arcs[,"end1"]
+  # extract the boundary redpoints from XY
+  redpoints <- coords[indices, ]
+  # add the closing point
+  redpoints <- rbind(redpoints,redpoints[1,])
+  # create the SpatialPolygonsDataFrame
+  SpP <- SpatialPolygons(list(Polygons(list(Polygon(redpoints)), ID = "s1"))) 
+  fortified <- fortify(SpP)
+  return(fortified)
+}
+
+unique(stations$line)
+
+bluefortified <- fortifiedline("blue")
+greenfortified <- fortifiedline("green")
+orangefortified <- fortifiedline("orange")
+
+ggmap(map) +
+  geom_point(data = points, aes(x = X, y = Y), color = stations$line) +
+  geom_polygon(data = redfortified, aes(long, lat, group = group),
+               fill = "red", colour = "darkred", alpha = 0.2) +
+  geom_polygon(data = bluefortified, aes(long, lat, group = group),
+               fill = "blue", colour = "darkblue", alpha = 0.2) +
+  geom_polygon(data = greenfortified, aes(long, lat, group = group),
+               fill = "green", colour = "darkgreen", alpha = 0.2) +
+  geom_polygon(data = orangefortified, aes(long, lat, group = group),
+               fill = "orange", colour = "darkorange", alpha = 0.2) +
+  labs(title = "Boundaries for each of the lines")
+ggsave("output/Test3.png")
+  
