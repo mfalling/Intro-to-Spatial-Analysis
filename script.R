@@ -395,59 +395,125 @@ ggsave("output/Test5.png")
 # Which line is the closest, from any given point?
 
 # TRAVELING SALESMAN
-# Direct rip from: https://www.r-orms.org/mixed-integer-linear-programming/practicals/problem-tsp/
+# Closely following: https://www.r-orms.org/mixed-integer-linear-programming/practicals/problem-tsp/
+# Added notes for later.
 
 
-n <- 10
-max_x <- 500
-max_y <- 500
-set.seed(123456)
-cities <- data.frame(id = 1:n, x = runif(n, max = max_x), y = runif(n, max = max_y))
-ggplot(cities, aes(x, y)) + 
+library(ompr.roi)
+library(ROI.plugin.glpk)
+
+# Isolate the line
+line <- points %>%
+  filter(stations$line == "orange")
+# Get number of stations on the line
+n_stations <- nrow(line)
+# Reset row names to better understand distance outputs.
+row.names(line) <- NULL
+# View line
+ggplot(line, aes(X, Y)) + 
   geom_point()
-distance <- as.matrix(stats::dist(select(cities, x, y), diag = TRUE, upper = TRUE))
+
+# Creates a correlation matrix of distances between each station. 2x2 matrix with 0's on the diagonal.
+distance <- as.matrix(stats::dist(select(line, X, Y), diag = TRUE, upper = TRUE))
+# Use this function to get the distance between stations. Nested inside the objectives componenent of the model.
 dist_fun <- function(i, j) {
   vapply(seq_along(i), function(k) distance[i[k], j[k]], numeric(1L))
 }
 
 
-model <- MIPModel() %>%
-  # we create a variable that is 1 iff we travel from city i to j
-  add_variable(x[i, j], i = 1:n, j = 1:n, 
-               type = "integer", lb = 0, ub = 1) %>%
-  # a helper variable for the MTZ formulation of the tsp
-  add_variable(u[i], i = 1:n, lb = 1, ub = n) %>% 
-  # minimize travel distance
-  set_objective(sum_expr(dist_fun(i, j) * x[i, j], i = 1:n, j = 1:n), "min") %>%
-  # you cannot go to the same city
-  set_bounds(x[i, i], ub = 0, i = 1:n) %>%
-  # leave each city
-  add_constraint(sum_expr(x[i, j], j = 1:n) == 1, i = 1:n) %>%
-  # visit each city
-  add_constraint(sum_expr(x[i, j], i = 1:n) == 1, j = 1:n) %>%
-  # ensure no subtours (arc constraints)
-  add_constraint(u[i] >= 2, i = 2:n) %>% 
-  add_constraint(u[i] - u[j] + 1 <= (n - 1) * (1 - x[i, j]), i = 2:n, j = 2:n)
+# NOTE: Had to switch from "blue" to "orange" due to # of stops. 
+# This model is not suitable for large values of n (25 is apparently large)
 
-library(ompr.roi)
-library(ROI.plugin.glpk)
-library(kable)
+# View empty model
+model <- MIPModel()
+model
+# Model contains three parts: variables, objective, and constraints.
+
+# Fill variables list
+model <- model %>%
+# we create a variable that is 1 iff we travel from station i to j
+add_variable(x[i, j], i = 1:n_stations, j = 1:n_stations, 
+             type = "integer", lb = 0, ub = 1)
+model
+# Model now contains 625 integers: The blue line has 25 stations. This is a 25x25 matrix inside a list.
+# lb is lower bound, ub is upper bound. 
+
+# Add helper variable for MTZ formulation
+# MTZ Formulation: Eliminate subtours
+# See https://medium.com/swlh/techniques-for-subtour-elimination-in-traveling-salesman-problem-theory-and-implementation-in-71942e0baf0c
+
+model <- model %>%
+  # a helper variable for the MTZ formulation of the tsp
+  add_variable(u[i], i = 1:n_stations, lb = 1, ub = n_stations) #
+model  
+# Model now has 25 continuous variables to help with MTZ formulation.
+# Upper bound is set to 25 (number of stations).
+# Fill objective list  
+model <- model %>%
+  # minimize travel distance
+  set_objective(sum_expr(dist_fun(i, j) * x[i, j], 
+                         i = 1:n_stations, 
+                         j = 1:n_stations), "min") 
+model
+# Objective is using three parts: 
+#  1) model, as previously defined
+#  2) expression, which is a sum expression. I'm not sure why the distance between points is multiplied by the (x,y) values.
+#     I think this happens because it's working through the correlation matrix and the "sense" (below) chooses lowest values?
+#  3) "sense", which must be set to either "min" or "max". It is set to "min".
+
+# Example sum expression, for context. Replace x[i] with the dist_fun() to understand the summation better.
+sum_expr(x[i], i = 1:10)
+# Set bounds.
+model <- model %>%
+  # you cannot go to the same station
+  set_bounds(x[i, i], ub = 0, i = 1:n_stations) #
+model
+# The upper boundary defined in the "Variables" list now contains zero values.
+# Set constraints
+model <- model %>%
+  # leave each city
+  add_constraint(sum_expr(x[i, j], j = 1:n_stations) == 1, i = 1:n_stations) %>%
+  # visit each city
+  add_constraint(sum_expr(x[i, j], i = 1:n_stations) == 1, j = 1:n_stations) %>%
+  # ensure no subtours (arc constraints)
+  add_constraint(u[i] >= 2, i = 2:n_stations) %>% 
+  add_constraint(u[i] - u[j] + 1 <= (n_stations - 1) * (1 - x[i, j]), i = 2:n_stations, j = 2:n_stations)
+# The constraints are equations setting the LHS expression equal to the RHS expression.
+# I'm not sure where to find or interpret how these constraints are actually working.
+
+# Using the solvers in the ROI package to solve the model.
+# ROI is "R Optimization Infrastructure"
+# This function uses "glpk". See https://en.wikipedia.org/wiki/GNU_Linear_Programming_Kit
+# GNU Linear Programming Kit (GLPK) is a software package intended for solving large-scale linear programming (LP), 
+#    mixed integer programming (MIP), and other related problems. I don't know how this works.
 result <- solve_model(model, with_ROI(solver = "glpk", verbose = TRUE))
+result
+# Generates a "Large solution" class object with 6 elements. Returns an objective value in the console.
+
 solution <- get_solution(result, x[i, j]) %>% 
   filter(value > 0) 
-kable(head(solution, 3))
+solution
+# Generates a 4 column dataframe (variable, i, j, and value)
+
+# df needs an id column for path. Creating now.
+# This id column is used to join the solutions to the dataframe.
+line$id <- 1:nrow(line)
+
 paths <- select(solution, i, j) %>% 
   rename(from = i, to = j) %>% 
   mutate(trip_id = row_number()) %>% 
   tidyr::gather(property, idx_val, from:to) %>% 
   mutate(idx_val = as.integer(idx_val)) %>% 
-  inner_join(cities, by = c("idx_val" = "id"))
-head(arrange(paths, trip_id), 4)
-ggplot(cities, aes(x, y)) + 
+  inner_join(line, by = c("idx_val" = "id"))
+
+arrange(paths, trip_id)
+
+ggplot(line, aes(X, Y)) + 
   geom_point() + 
   geom_line(data = paths, aes(group = trip_id)) + 
   ggtitle(paste0("Optimal route with cost: ", round(objective_value(result), 2)))
 
+# How is this different from the boundary lines?
 
 
 
