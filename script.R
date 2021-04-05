@@ -361,5 +361,27 @@ ggmap(map) +
 ggsave("output/Test5.png")
 
 options(scipen = 999)
-data.frame(line = unique(stations$line), 
+areas <- data.frame(line = unique(stations$line), 
            bb_area = sapply(slot(bbblue, "polygons"), slot, "area"))
+areas <- areas %>%
+  arrange(desc(bb_area))
+
+systembb <- stations %>%
+    extent() %>%
+    spPolygons(crs = crs(.))
+systembb$ID <- 1
+systembb <- fortify(systembb)
+
+
+ggmap(map) +
+  geom_polygon(data = systembb, aes(long, lat, group = group), color = "black", fill = NA, size = 1.5) +
+  geom_point(data = points, aes(x = X, y = Y)) +
+  geom_polygon(data = bbfull, aes(long, lat, group = line, fill = line, col = line), alpha = .2) +
+  geom_polygon(data = fortfull, aes(long, lat, group = line, fill = line, col = line), alpha = .5) +
+  scale_fill_manual(values = cbp1) +
+  scale_color_manual(values = cbp1) +
+  labs(title = "Metro lines: Boundary lines and bounding boxes",
+       caption = paste0("Bounding Box Areas:\n", 
+                        paste0(areas$line, " line : ", round(areas$bb_area, 6), collapse = ",\n")))
+ggsave("output/Test5.png")
+
