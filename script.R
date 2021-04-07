@@ -182,10 +182,13 @@ ggsave("output/Test1.png")
 
 
 # Get points for all the stations
-points <- data.frame(rbind(st_coordinates(stations$geometry)))
+points <- data.frame(st_coordinates(stations$geometry))
 points <- cbind(points, stations$line)
-# Center map on average lat/lon
-map <- get_map(data.frame(mean(points$X), mean(points$Y)), zoom = 10)
+
+# Get the map
+centerPoint <- data.frame(mean(fullset$X), mean(fullset$Y))
+map <- get_map(centerPoint, zoom = 12)
+
 
 # Plot locations of stations
 ggmap(map) +

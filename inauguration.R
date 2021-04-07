@@ -2,7 +2,9 @@
 # Library -----------------------------------------------------------------
 
 library(dplyr)
-
+library(tidyr)
+library(ggplot2)
+library(ggmap)
 
 # About -------------------------------------------------------------------
 
@@ -101,3 +103,34 @@ fullset <- fullset %>%
   select(-c("type", "name", "marker.sym"))
 
 head(fullset)
+
+
+# Mapping -----------------------------------------------------------------
+
+# Add Lat/Long to the dataset as discrete X/Y columns.
+fullset <- cbind(fullset, 
+                 st_coordinates(fullset$geometry))
+
+# Get sums for each line at each timepoint.
+fullset %>%
+  drop_na() %>%
+  group_by(line) %>%
+  summarise_at(times, mean)
+
+# Plot ridership by time of day.
+ggplot(data = fullset, 
+       aes(x = X, y = Y, color = line, size = am_peak)) +
+  geom_point()
+ggplot(data = fullset, 
+       aes(x = X, y = Y, color = line, size = midday)) +
+  geom_point()
+ggplot(data = fullset, 
+       aes(x = X, y = Y, color = line, size = pm_peak)) +
+  geom_point()
+ggplot(data = fullset, 
+       aes(x = X, y = Y, color = line, size = env)) +
+  geom_point()
+
+
+
+
