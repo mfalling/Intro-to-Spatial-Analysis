@@ -30,7 +30,7 @@ library(raster)
 
 
 # Reading shp file using sf package.
-stations <- st_read("stations/stations.shp")
+stations <- st_read("data/stations/stations.shp")
 
 # Reads as a dataframe?
 str(stations)
@@ -511,10 +511,31 @@ arrange(paths, trip_id)
 ggplot(line, aes(X, Y)) + 
   geom_point() + 
   geom_line(data = paths, aes(group = trip_id)) + 
-  ggtitle(paste0("Optimal route with cost: ", round(objective_value(result), 2)))
+  labs(title = "TSP Optimal Route of Orange Line",
+       subtitle = paste0("Optimal route with cost: ", round(objective_value(result), 2)))
+ggsave("output/TSP_1.png")
 
 # How is this different from the boundary lines?
 
+obbox <- bbfull %>%
+  filter(line == "orange")
 
 
+ggmap(map) +
+  geom_point(data = points, aes(x = X, y = Y), color = stations$line) +
+  geom_polygon(data = obbox, aes(long, lat, group = line), alpha = .2) +
+  geom_polygon(data = orangefortified, aes(long, lat, group = group), fill = "orange", colour = "darkorange", alpha = 0.2) +
+  geom_line(data = paths, aes(x = X, y = Y, group = trip_id), size = 1) +
+  scale_x_continuous(limits = c(min(points$X)-.02, max(points$X)+.02), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(min(points$Y)-.02, max(points$Y)+.02), expand = c(0, 0)) +
+  labs(title = "Mapping the Orange Line",
+       subtitle = paste0("Black Line: TSP Route","\n",
+                         "Orange Polygon: Boundary Lines", "\n",
+                         "Grey Rectangle: Bounding Box"))
+ggsave("output/TSP_2.png")
 
+
+#   -----------------------------------------------------------------------
+
+
+plot(stations)
